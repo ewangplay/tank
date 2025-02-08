@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"image/color"
 	"log"
 	"math/rand"
 	"time"
 
-	"github.com/hajimehoshi/ebiten/examples/resources/fonts"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -21,7 +19,7 @@ var (
 )
 
 func init() {
-	s, err := text.NewGoTextFaceSource(bytes.NewReader(fonts.MPlus1pRegular_ttf))
+	s, err := text.NewGoTextFaceSource(loadFromFile("fonts/STSONG.ttf"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -51,14 +49,15 @@ type Wall struct {
 
 // Game 表示游戏状态
 type Game struct {
-	playerTank    *Tank
-	playerBullets []Bullet
-	enemyTanks    []Tank
-	enemyBullets  []Bullet
-	walls         []Wall
-	enemyTimer    *time.Timer
-	wallTimer     *time.Timer
-	gameOver      bool
+	playerTank     *Tank
+	playerBullets  []Bullet
+	enemyTanks     []Tank
+	enemyBullets   []Bullet
+	walls          []Wall
+	enemyTimer     *time.Timer
+	wallTimer      *time.Timer
+	gameOver       bool
+	enemyTankCount int
 }
 
 // NewGame 创建一个新的游戏实例
@@ -84,9 +83,10 @@ func NewGame() *Game {
 			{x: 400, y: 50, width: 10, height: 100, health: 3},
 			{x: 350, y: 350, width: 10, height: 50, health: 3},
 		},
-		enemyTimer: time.NewTimer(enemyTankCheckInterval * time.Minute),
-		wallTimer:  time.NewTimer(wallCheckInterval * time.Minute),
-		gameOver:   false,
+		enemyTimer:     time.NewTimer(enemyTankCheckInterval * time.Minute),
+		wallTimer:      time.NewTimer(wallCheckInterval * time.Minute),
+		gameOver:       false,
+		enemyTankCount: maxEnemyTankCount,
 	}
 
 	go game.spawnEnemyTanks()
@@ -99,7 +99,7 @@ func NewGame() *Game {
 func (g *Game) spawnEnemyTanks() {
 	for {
 		<-g.enemyTimer.C
-		if len(g.enemyTanks) < maxEnemyTankCount {
+		if len(g.enemyTanks) < g.enemyTankCount {
 			newTank := Tank{
 				x:         float32(rand.Intn(screenWidth - 20)),
 				y:         float32(statusBarHeight + rand.Intn(screenHeight-40)),
@@ -501,23 +501,22 @@ func (g *Game) drawStatusBar(screen *ebiten.Image) {
 		fontSize = 14
 	)
 
-	// 绘制 TPS
-	msg := fmt.Sprintf("TPS: %0.2f", ebiten.ActualTPS())
-	op := &text.DrawOptions{}
-	op.GeoM.Translate(10, 2)
-	op.ColorScale.ScaleWithColor(color.Black)
-	text.Draw(screen, msg, &text.GoTextFace{
+	face := &text.GoTextFace{
 		Source: mplusFaceSource,
 		Size:   fontSize,
-	}, op)
+	}
+	op := &text.DrawOptions{}
+	op.ColorScale.ScaleWithColor(color.RGBA{0, 0, 255, 255})
+
+	// 绘制 TPS
+	msg := fmt.Sprintf("敌方坦克总数: %d", g.enemyTankCount)
+	op.GeoM.Translate(2, 1)
+	text.Draw(screen, msg, face, op)
 
 	// 绘制玩家坦克数量
-	msg = fmt.Sprintf("Enemy Tanks Number: %d", len(g.enemyTanks))
-	op.GeoM.Translate(100, 1)
-	text.Draw(screen, msg, &text.GoTextFace{
-		Source: mplusFaceSource,
-		Size:   fontSize,
-	}, op)
+	msg = fmt.Sprintf("敌方出动坦克数: %d", len(g.enemyTanks))
+	op.GeoM.Translate(120, 1)
+	text.Draw(screen, msg, face, op)
 }
 
 // Draw 绘制游戏画面
