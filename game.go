@@ -83,8 +83,8 @@ func NewGame() *Game {
 			{x: 400, y: 50, width: 10, height: 100, health: 3},
 			{x: 350, y: 350, width: 10, height: 50, health: 3},
 		},
-		enemyTimer:     time.NewTimer(enemyTankCheckInterval * time.Minute),
-		wallTimer:      time.NewTimer(wallCheckInterval * time.Minute),
+		enemyTimer:     time.NewTimer(time.Duration(5+rand.Intn(enemyTankCheckInterval)) * time.Second),
+		wallTimer:      time.NewTimer(time.Duration(10+rand.Intn(wallCheckInterval)) * time.Second),
 		gameOver:       false,
 		enemyTankCount: maxEnemyTankCount,
 	}
@@ -107,7 +107,7 @@ func (g *Game) spawnEnemyTanks() {
 			}
 			g.enemyTanks = append(g.enemyTanks, newTank)
 		}
-		g.enemyTimer.Reset(enemyTankCheckInterval * time.Minute)
+		g.enemyTimer.Reset(time.Duration(5+rand.Intn(enemyTankCheckInterval)) * time.Second)
 	}
 }
 
@@ -138,7 +138,7 @@ func (g *Game) spawnWalls() {
 			}
 			g.walls = append(g.walls, newWall)
 		}
-		g.wallTimer.Reset(wallCheckInterval * time.Minute)
+		g.wallTimer.Reset(time.Duration(10+rand.Intn(wallCheckInterval)) * time.Minute)
 	}
 }
 

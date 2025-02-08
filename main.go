@@ -24,10 +24,10 @@ const (
 	maxEnemyTankCount = 5
 	// 最大墙的数量
 	maxWallCount = 5
-	// 墙的检测间隔，分钟为单位
-	wallCheckInterval = 1
-	// 敌方坦克的检测间隔，分钟为单位
-	enemyTankCheckInterval = 2
+	// 墙的检测间隔，单位为秒
+	wallCheckInterval = 60
+	// 敌方坦克的检测间隔，单位为秒
+	enemyTankCheckInterval = 60
 	// 状态栏的高度
 	statusBarHeight = 20
 )
