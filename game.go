@@ -1,15 +1,32 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
 	"image/color"
+	"log"
 	"math/rand"
 	"time"
 
+	"github.com/hajimehoshi/ebiten/examples/resources/fonts"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
+
+var (
+	mplusFaceSource *text.GoTextFaceSource
+)
+
+func init() {
+	s, err := text.NewGoTextFaceSource(bytes.NewReader(fonts.MPlus1pRegular_ttf))
+	if err != nil {
+		log.Fatal(err)
+	}
+	mplusFaceSource = s
+}
 
 // Tank 表示坦克
 type Tank struct {
@@ -49,7 +66,7 @@ func NewGame() *Game {
 	game := &Game{
 		playerTank: &Tank{
 			x:         screenWidth / 2,
-			y:         screenHeight / 2,
+			y:         screenHeight/2 + statusBarHeight,
 			direction: 0,
 		},
 		playerBullets: []Bullet{},
@@ -85,7 +102,7 @@ func (g *Game) spawnEnemyTanks() {
 		if len(g.enemyTanks) < maxEnemyTankCount {
 			newTank := Tank{
 				x:         float32(rand.Intn(screenWidth - 20)),
-				y:         float32(rand.Intn(screenHeight - 20)),
+				y:         float32(statusBarHeight + rand.Intn(screenHeight-40)),
 				direction: rand.Intn(4),
 			}
 			g.enemyTanks = append(g.enemyTanks, newTank)
@@ -104,7 +121,7 @@ func (g *Game) spawnWalls() {
 				// 生成水平的墙
 				newWall = Wall{
 					x:      float32(rand.Intn(screenWidth - 50)),
-					y:      float32(rand.Intn(screenHeight - 10)),
+					y:      float32(statusBarHeight*2 + rand.Intn(screenHeight-10)),
 					width:  float32(rand.Intn(50) + 50),
 					height: 10,
 					health: 3,
@@ -113,7 +130,7 @@ func (g *Game) spawnWalls() {
 				// 生成竖直的墙
 				newWall = Wall{
 					x:      float32(rand.Intn(screenWidth - 10)),
-					y:      float32(rand.Intn(screenHeight - 50)),
+					y:      float32(statusBarHeight + rand.Intn(screenHeight-50)),
 					width:  10,
 					height: float32(rand.Intn(50) + 50),
 					health: 3,
@@ -132,7 +149,7 @@ func (g *Game) updatePlayerTank() error {
 
 		if ebiten.IsKeyPressed(ebiten.KeyUp) {
 			g.playerTank.direction = 0
-			if g.playerTank.y > 0 {
+			if g.playerTank.y > statusBarHeight {
 				newY -= tankSpeed
 			}
 		} else if ebiten.IsKeyPressed(ebiten.KeyRight) {
@@ -251,7 +268,7 @@ func (g *Game) updatePlayerBullets() error {
 
 		// 移除超出屏幕的子弹
 		if i >= 0 && i < len(g.playerBullets) {
-			if g.playerBullets[i].x < 0 || g.playerBullets[i].x > screenWidth || g.playerBullets[i].y < 0 || g.playerBullets[i].y > screenHeight {
+			if g.playerBullets[i].x < 0 || g.playerBullets[i].x > screenWidth || g.playerBullets[i].y < statusBarHeight || g.playerBullets[i].y > screenHeight {
 				g.playerBullets = append(g.playerBullets[:i], g.playerBullets[i+1:]...)
 				i--
 			}
@@ -275,7 +292,7 @@ func (g *Game) updateEnemyTanks() error {
 
 		switch g.enemyTanks[i].direction {
 		case 0:
-			if g.enemyTanks[i].y > 0 {
+			if g.enemyTanks[i].y > statusBarHeight {
 				newY -= tankSpeed
 			} else {
 				g.enemyTanks[i].direction = rand.Intn(4)
@@ -393,7 +410,7 @@ func (g *Game) updateEnemyBullets() error {
 
 		// 移除超出屏幕的子弹
 		if i >= 0 && i < len(g.enemyBullets) {
-			if g.enemyBullets[i].x < 0 || g.enemyBullets[i].x > screenWidth || g.enemyBullets[i].y < 0 || g.enemyBullets[i].y > screenHeight {
+			if g.enemyBullets[i].x < 0 || g.enemyBullets[i].x > screenWidth || g.enemyBullets[i].y < statusBarHeight || g.enemyBullets[i].y > screenHeight {
 				g.enemyBullets = append(g.enemyBullets[:i], g.enemyBullets[i+1:]...)
 				i--
 			}
@@ -476,6 +493,33 @@ func (g *Game) drawWalls(screen *ebiten.Image) {
 	}
 }
 
+func (g *Game) drawStatusBar(screen *ebiten.Image) {
+	// 绘制状态栏
+	vector.DrawFilledRect(screen, 0, 0, screenWidth, 20, color.RGBA{192, 192, 192, 255}, false)
+
+	const (
+		fontSize = 14
+	)
+
+	// 绘制 TPS
+	msg := fmt.Sprintf("TPS: %0.2f", ebiten.ActualTPS())
+	op := &text.DrawOptions{}
+	op.GeoM.Translate(10, 2)
+	op.ColorScale.ScaleWithColor(color.Black)
+	text.Draw(screen, msg, &text.GoTextFace{
+		Source: mplusFaceSource,
+		Size:   fontSize,
+	}, op)
+
+	// 绘制玩家坦克数量
+	msg = fmt.Sprintf("Enemy Tanks Number: %d", len(g.enemyTanks))
+	op.GeoM.Translate(100, 1)
+	text.Draw(screen, msg, &text.GoTextFace{
+		Source: mplusFaceSource,
+		Size:   fontSize,
+	}, op)
+}
+
 // Draw 绘制游戏画面
 func (g *Game) Draw(screen *ebiten.Image) {
 	if g.gameOver {
@@ -483,6 +527,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 
+	g.drawStatusBar(screen)
 	g.drawPlayerTank(screen)
 	g.drawPlayerBullets(screen)
 	g.drawEnemyTanks(screen)

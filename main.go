@@ -25,9 +25,11 @@ const (
 	// 最大墙的数量
 	maxWallCount = 5
 	// 墙的检测间隔，分钟为单位
-	wallCheckInterval = 3
+	wallCheckInterval = 1
 	// 敌方坦克的检测间隔，分钟为单位
 	enemyTankCheckInterval = 2
+	// 状态栏的高度
+	statusBarHeight = 20
 )
 
 func main() {
