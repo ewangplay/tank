@@ -30,6 +30,12 @@ const (
 	enemyTankCheckInterval = 60
 	// 状态栏的高度
 	statusBarHeight = 20
+	// 玩家坦克的生命值
+	playerTankHP = 3
+	// 敌方坦克的生命值
+	enemyTankHP = 1
+	// 墙的坚固值
+	wallHP = 3
 )
 
 func main() {

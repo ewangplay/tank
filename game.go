@@ -32,6 +32,7 @@ type Tank struct {
 	direction        int // 0: 上, 1: 右, 2: 下, 3: 左
 	directionChanged bool
 	hasShot          bool
+	health           int
 }
 
 // Bullet 表示子弹
@@ -67,6 +68,7 @@ func NewGame() *Game {
 			x:         screenWidth / 2,
 			y:         screenHeight/2 + statusBarHeight,
 			direction: 0,
+			health:    playerTankHP,
 		},
 		playerBullets: []Bullet{},
 		enemyTanks: []Tank{
@@ -74,14 +76,15 @@ func NewGame() *Game {
 				x:         100,
 				y:         100,
 				direction: 2,
+				health:    enemyTankHP,
 			},
 		},
 		enemyBullets: []Bullet{},
 		walls: []Wall{
-			{x: 150, y: 150, width: 100, height: 10, health: 3},
-			{x: 250, y: 280, width: 150, height: 10, health: 3},
-			{x: 400, y: 50, width: 10, height: 100, health: 3},
-			{x: 350, y: 350, width: 10, height: 50, health: 3},
+			{x: 150, y: 150, width: 100, height: 10, health: wallHP},
+			{x: 250, y: 280, width: 150, height: 10, health: wallHP},
+			{x: 400, y: 50, width: 10, height: 100, health: wallHP},
+			{x: 350, y: 350, width: 10, height: 50, health: wallHP},
 		},
 		enemyTimer:     time.NewTimer(time.Duration(5+rand.Intn(enemyTankCheckInterval)) * time.Second),
 		wallTimer:      time.NewTimer(time.Duration(10+rand.Intn(wallCheckInterval)) * time.Second),
@@ -104,6 +107,7 @@ func (g *Game) spawnEnemyTanks() {
 				x:         float32(rand.Intn(screenWidth - 20)),
 				y:         float32(statusBarHeight + rand.Intn(screenHeight-40)),
 				direction: rand.Intn(4),
+				health:    enemyTankHP,
 			}
 			g.enemyTanks = append(g.enemyTanks, newTank)
 		}
@@ -124,7 +128,7 @@ func (g *Game) spawnWalls() {
 					y:      float32(statusBarHeight*2 + rand.Intn(screenHeight-10)),
 					width:  float32(rand.Intn(50) + 50),
 					height: 10,
-					health: 3,
+					health: wallHP,
 				}
 			} else {
 				// 生成竖直的墙
@@ -133,7 +137,7 @@ func (g *Game) spawnWalls() {
 					y:      float32(statusBarHeight + rand.Intn(screenHeight-50)),
 					width:  10,
 					height: float32(rand.Intn(50) + 50),
-					health: 3,
+					health: wallHP,
 				}
 			}
 			g.walls = append(g.walls, newWall)
@@ -226,8 +230,11 @@ func (g *Game) updatePlayerBullets() error {
 				break
 			}
 			if checkCollision(g.playerBullets[i].x, g.playerBullets[i].y, 5, 5, g.enemyTanks[j].x, g.enemyTanks[j].y, 20, 20) {
-				// 移除敌方坦克
-				g.enemyTanks = append(g.enemyTanks[:j], g.enemyTanks[j+1:]...)
+				g.enemyTanks[j].health--
+				if g.enemyTanks[j].health <= 0 {
+					// 移除敌方坦克
+					g.enemyTanks = append(g.enemyTanks[:j], g.enemyTanks[j+1:]...)
+				}
 				// 移除子弹
 				g.playerBullets = append(g.playerBullets[:i], g.playerBullets[i+1:]...)
 				i--
@@ -243,8 +250,10 @@ func (g *Game) updatePlayerBullets() error {
 			if checkCollision(g.playerBullets[i].x, g.playerBullets[i].y, 5, 5, g.walls[j].x, g.walls[j].y, g.walls[j].width, g.walls[j].height) {
 				g.walls[j].health--
 				if g.walls[j].health <= 0 {
+					// 移除墙
 					g.walls = append(g.walls[:j], g.walls[j+1:]...)
 				}
+				// 移除子弹
 				g.playerBullets = append(g.playerBullets[:i], g.playerBullets[i+1:]...)
 				i--
 				break
@@ -383,8 +392,11 @@ func (g *Game) updateEnemyBullets() error {
 		// 检测敌方子弹与玩家坦克的碰撞
 		if g.playerTank != nil && len(g.enemyBullets) > 0 {
 			if checkCollision(g.enemyBullets[i].x, g.enemyBullets[i].y, 5, 5, g.playerTank.x, g.playerTank.y, 20, 20) {
-				// 移除玩家坦克
-				g.playerTank = nil
+				g.playerTank.health--
+				if g.playerTank.health <= 0 {
+					// 移除玩家坦克
+					g.playerTank = nil
+				}
 				// 移除子弹
 				g.enemyBullets = append(g.enemyBullets[:i], g.enemyBullets[i+1:]...)
 				i--
@@ -400,8 +412,10 @@ func (g *Game) updateEnemyBullets() error {
 			if checkCollision(g.enemyBullets[i].x, g.enemyBullets[i].y, 5, 5, g.walls[j].x, g.walls[j].y, g.walls[j].width, g.walls[j].height) {
 				g.walls[j].health--
 				if g.walls[j].health <= 0 {
+					// 移除墙
 					g.walls = append(g.walls[:j], g.walls[j+1:]...)
 				}
+				// 移除子弹
 				g.enemyBullets = append(g.enemyBullets[:i], g.enemyBullets[i+1:]...)
 				i--
 				break
@@ -508,15 +522,22 @@ func (g *Game) drawStatusBar(screen *ebiten.Image) {
 	op := &text.DrawOptions{}
 	op.ColorScale.ScaleWithColor(color.RGBA{0, 0, 255, 255})
 
-	// 绘制 TPS
+	// 绘制敌方坦克总数
 	msg := fmt.Sprintf("敌方坦克总数: %d", g.enemyTankCount)
 	op.GeoM.Translate(2, 1)
 	text.Draw(screen, msg, face, op)
 
-	// 绘制玩家坦克数量
+	// 绘制敌方出动坦克数
 	msg = fmt.Sprintf("敌方出动坦克数: %d", len(g.enemyTanks))
 	op.GeoM.Translate(120, 1)
 	text.Draw(screen, msg, face, op)
+
+	// 绘制玩家坦克生命值
+	if g.playerTank != nil {
+		msg = fmt.Sprintf("玩家生命值: %d", g.playerTank.health)
+		op.GeoM.Translate(240, 1)
+		text.Draw(screen, msg, face, op)
+	}
 }
 
 // Draw 绘制游戏画面
