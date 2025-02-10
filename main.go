@@ -21,7 +21,7 @@ const (
 	// 每 5 帧射击一次
 	shootInterval = 5
 	// 最大敌方坦克数量
-	maxEnemyTankCount = 5
+	maxEnemyTankCount = 10
 	// 最大墙的数量
 	maxWallCount = 5
 	// 墙的检测间隔，单位为秒
@@ -32,6 +32,8 @@ const (
 	statusBarHeight = 20
 	// 玩家坦克的生命值
 	playerTankHP = 3
+	// Boss 坦克的生命值
+	bossTankHP = 100
 	// 敌方坦克的生命值
 	enemyTankHP = 1
 	// 墙的坚固值

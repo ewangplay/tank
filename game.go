@@ -51,13 +51,16 @@ type Wall struct {
 // Game 表示游戏状态
 type Game struct {
 	playerTank     *Tank
+	bossTank       *Tank
 	playerBullets  []Bullet
 	enemyTanks     []Tank
+	bossBullets    []Bullet
 	enemyBullets   []Bullet
 	walls          []Wall
 	enemyTimer     *time.Timer
 	wallTimer      *time.Timer
 	gameOver       bool
+	gameSucc       bool
 	enemyTankCount int
 }
 
@@ -71,15 +74,15 @@ func NewGame() *Game {
 			health:    playerTankHP,
 		},
 		playerBullets: []Bullet{},
-		enemyTanks: []Tank{
-			{
-				x:         100,
-				y:         100,
-				direction: 2,
-				health:    enemyTankHP,
-			},
+		bossTank: &Tank{
+			x:         100,
+			y:         100,
+			direction: 2,
+			health:    bossTankHP,
 		},
+		enemyTanks:   []Tank{},
 		enemyBullets: []Bullet{},
+		bossBullets:  []Bullet{},
 		walls: []Wall{
 			{x: 150, y: 150, width: 100, height: 10, health: wallHP},
 			{x: 250, y: 280, width: 150, height: 10, health: wallHP},
@@ -89,6 +92,7 @@ func NewGame() *Game {
 		enemyTimer:     time.NewTimer(time.Duration(5+rand.Intn(enemyTankCheckInterval)) * time.Second),
 		wallTimer:      time.NewTimer(time.Duration(10+rand.Intn(wallCheckInterval)) * time.Second),
 		gameOver:       false,
+		gameSucc:       false,
 		enemyTankCount: maxEnemyTankCount,
 	}
 
@@ -142,7 +146,7 @@ func (g *Game) spawnWalls() {
 			}
 			g.walls = append(g.walls, newWall)
 		}
-		g.wallTimer.Reset(time.Duration(10+rand.Intn(wallCheckInterval)) * time.Minute)
+		g.wallTimer.Reset(time.Duration(10+rand.Intn(wallCheckInterval)) * time.Second)
 	}
 }
 
@@ -173,8 +177,15 @@ func (g *Game) updatePlayerTank() error {
 			}
 		}
 
-		// 检测与敌方坦克的碰撞
 		collision := false
+		// 检测与Boss坦克的碰撞
+		if g.bossTank != nil {
+			if checkCollision(newX, newY, 20, 20, g.bossTank.x, g.bossTank.y, 20, 20) {
+				collision = true
+			}
+		}
+
+		// 检测与敌方坦克的碰撞
 		for _, enemyTank := range g.enemyTanks {
 			if checkCollision(newX, newY, 20, 20, enemyTank.x, enemyTank.y, 20, 20) {
 				collision = true
@@ -224,6 +235,20 @@ func (g *Game) updatePlayerBullets() error {
 			g.playerBullets[i].x -= bulletSpeed
 		}
 
+		// 检测玩家子弹与Boss坦克的碰撞
+		if g.bossTank != nil {
+			if checkCollision(g.playerBullets[i].x, g.playerBullets[i].y, 5, 5, g.bossTank.x, g.bossTank.y, 20, 20) {
+				g.bossTank.health--
+				if g.bossTank.health <= 0 {
+					// 移除Boss坦克
+					g.bossTank = nil
+				}
+				// 移除子弹
+				g.playerBullets = append(g.playerBullets[:i], g.playerBullets[i+1:]...)
+				i--
+			}
+		}
+
 		// 检测玩家子弹与敌方坦克的碰撞
 		for j := 0; j < len(g.enemyTanks); j++ {
 			if i < 0 {
@@ -260,6 +285,21 @@ func (g *Game) updatePlayerBullets() error {
 			}
 		}
 
+		// 检测玩家子弹与Boss子弹的碰撞
+		for j := 0; j < len(g.bossBullets); j++ {
+			if i < 0 {
+				break
+			}
+			if checkCollision(g.playerBullets[i].x, g.playerBullets[i].y, 5, 5, g.bossBullets[j].x, g.bossBullets[j].y, 5, 5) {
+				// 移除Boss子弹
+				g.bossBullets = append(g.bossBullets[:j], g.bossBullets[j+1:]...)
+				// 移除玩家子弹
+				g.playerBullets = append(g.playerBullets[:i], g.playerBullets[i+1:]...)
+				i--
+				break
+			}
+		}
+
 		// 检测玩家子弹与敌方子弹的碰撞
 		for j := 0; j < len(g.enemyBullets); j++ {
 			if i < 0 {
@@ -279,6 +319,153 @@ func (g *Game) updatePlayerBullets() error {
 		if i >= 0 && i < len(g.playerBullets) {
 			if g.playerBullets[i].x < 0 || g.playerBullets[i].x > screenWidth || g.playerBullets[i].y < statusBarHeight || g.playerBullets[i].y > screenHeight {
 				g.playerBullets = append(g.playerBullets[:i], g.playerBullets[i+1:]...)
+				i--
+			}
+		}
+	}
+	return nil
+}
+
+func (g *Game) updateBossTank() error {
+	if g.bossTank != nil {
+		// 简单的随机移动逻辑
+		if int(ebiten.ActualTPS())%changeDirInterval == 0 && !g.bossTank.directionChanged {
+			g.bossTank.direction = rand.Intn(4)
+			g.bossTank.directionChanged = true
+		} else if int(ebiten.ActualTPS())%changeDirInterval != 0 {
+			g.bossTank.directionChanged = false
+		}
+
+		var newX, newY = g.bossTank.x, g.bossTank.y
+
+		switch g.bossTank.direction {
+		case 0:
+			if g.bossTank.y > statusBarHeight {
+				newY -= tankSpeed
+			} else {
+				g.bossTank.direction = rand.Intn(4)
+			}
+		case 1:
+			if g.bossTank.x < screenWidth-20 {
+				newX += tankSpeed
+			} else {
+				g.bossTank.direction = rand.Intn(4)
+			}
+		case 2:
+			if g.bossTank.y < screenHeight-20 {
+				newY += tankSpeed
+			} else {
+				g.bossTank.direction = rand.Intn(4)
+			}
+		case 3:
+			if g.bossTank.x > 0 {
+				newX -= tankSpeed
+			} else {
+				g.bossTank.direction = rand.Intn(4)
+			}
+		}
+
+		// 检测与玩家坦克的碰撞
+		collision := false
+		if g.playerTank != nil {
+			if checkCollision(newX, newY, 20, 20, g.playerTank.x, g.playerTank.y, 20, 20) {
+				collision = true
+			}
+		}
+
+		// 检测与墙的碰撞
+		for _, wall := range g.walls {
+			if checkCollision(newX, newY, 20, 20, wall.x, wall.y, wall.width, wall.height) {
+				collision = true
+				// 随机改变行进方向
+				g.bossTank.direction = rand.Intn(4)
+				break
+			}
+		}
+
+		// 检测与敌方坦克的碰撞
+		for _, enemyTank := range g.enemyTanks {
+			if checkCollision(newX, newY, 20, 20, enemyTank.x, enemyTank.y, 20, 20) {
+				collision = true
+				// 随机改变行进方向
+				g.bossTank.direction = rand.Intn(4)
+				break
+			}
+		}
+
+		// 如果没有碰撞，更新敌人坦克位置
+		if !collision {
+			g.bossTank.x = newX
+			g.bossTank.y = newY
+		}
+
+		// 简单的随机射击逻辑
+		if int(ebiten.ActualTPS())%shootInterval == 0 && !g.bossTank.hasShot {
+			bullet := Bullet{
+				x:         g.bossTank.x + 8,
+				y:         g.bossTank.y + 8,
+				direction: g.bossTank.direction,
+			}
+			g.bossBullets = append(g.bossBullets, bullet)
+			g.bossTank.hasShot = true
+		} else if int(ebiten.ActualTPS())%shootInterval != 0 {
+			g.bossTank.hasShot = false
+		}
+	}
+	return nil
+}
+
+func (g *Game) updateBossBullets() error {
+	// 更新子弹位置
+	for i := 0; i < len(g.bossBullets); i++ {
+		switch g.bossBullets[i].direction {
+		case 0:
+			g.bossBullets[i].y -= bulletSpeed
+		case 1:
+			g.bossBullets[i].x += bulletSpeed
+		case 2:
+			g.bossBullets[i].y += bulletSpeed
+		case 3:
+			g.bossBullets[i].x -= bulletSpeed
+		}
+
+		// 检测Boss子弹与玩家坦克的碰撞
+		if g.playerTank != nil && len(g.bossBullets) > 0 {
+			if checkCollision(g.bossBullets[i].x, g.bossBullets[i].y, 5, 5, g.playerTank.x, g.playerTank.y, 20, 20) {
+				g.playerTank.health--
+				if g.playerTank.health <= 0 {
+					// 移除玩家坦克
+					g.playerTank = nil
+				}
+				// 移除子弹
+				g.bossBullets = append(g.bossBullets[:i], g.bossBullets[i+1:]...)
+				i--
+				continue
+			}
+		}
+
+		// 检测Boss子弹与墙的碰撞
+		for j := 0; j < len(g.walls); j++ {
+			if i < 0 {
+				break
+			}
+			if checkCollision(g.bossBullets[i].x, g.bossBullets[i].y, 5, 5, g.walls[j].x, g.walls[j].y, g.walls[j].width, g.walls[j].height) {
+				g.walls[j].health--
+				if g.walls[j].health <= 0 {
+					// 移除墙
+					g.walls = append(g.walls[:j], g.walls[j+1:]...)
+				}
+				// 移除子弹
+				g.bossBullets = append(g.bossBullets[:i], g.bossBullets[i+1:]...)
+				i--
+				break
+			}
+		}
+
+		// 移除超出屏幕的子弹
+		if i >= 0 && i < len(g.bossBullets) {
+			if g.bossBullets[i].x < 0 || g.bossBullets[i].x > screenWidth || g.bossBullets[i].y < statusBarHeight || g.bossBullets[i].y > screenHeight {
+				g.bossBullets = append(g.bossBullets[:i], g.bossBullets[i+1:]...)
 				i--
 			}
 		}
@@ -350,6 +537,15 @@ func (g *Game) updateEnemyTanks() error {
 					g.enemyTanks[i].direction = 1
 				}
 				break
+			}
+		}
+
+		// 检测与Boss坦克的碰撞
+		if g.bossTank != nil {
+			if checkCollision(newX, newY, 20, 20, g.bossTank.x, g.bossTank.y, 20, 20) {
+				collision = true
+				// 随机改变行进方向
+				g.enemyTanks[i].direction = rand.Intn(4)
 			}
 		}
 
@@ -435,18 +631,25 @@ func (g *Game) updateEnemyBullets() error {
 
 // Update 更新游戏状态
 func (g *Game) Update() error {
-	if g.gameOver {
+	if g.gameOver || g.gameSucc {
 		return nil
 	}
 
 	g.updatePlayerTank()
 	g.updatePlayerBullets()
+	g.updateBossTank()
+	g.updateBossBullets()
 	g.updateEnemyTanks()
 	g.updateEnemyBullets()
 
 	// 检测玩家坦克是否被消灭
 	if g.playerTank == nil {
 		g.gameOver = true
+	}
+
+	// 检测Boss坦克是否被消灭
+	if g.bossTank == nil {
+		g.gameSucc = true
 	}
 
 	return nil
@@ -476,19 +679,42 @@ func (g *Game) drawPlayerBullets(screen *ebiten.Image) {
 	}
 }
 
+func (g *Game) drawBossTank(screen *ebiten.Image) {
+	if g.bossTank != nil {
+		vector.DrawFilledRect(screen, g.bossTank.x, g.bossTank.y, 20, 20, color.RGBA{255, 0, 0, 255}, false)
+		switch g.bossTank.direction {
+		case 0:
+			vector.StrokeLine(screen, g.bossTank.x+10, g.bossTank.y, g.bossTank.x+10, g.bossTank.y-10, 1, color.RGBA{255, 0, 0, 255}, false)
+		case 1:
+			vector.StrokeLine(screen, g.bossTank.x+20, g.bossTank.y+10, g.bossTank.x+30, g.bossTank.y+10, 1, color.RGBA{255, 0, 0, 255}, false)
+		case 2:
+			vector.StrokeLine(screen, g.bossTank.x+10, g.bossTank.y+20, g.bossTank.x+10, g.bossTank.y+30, 1, color.RGBA{255, 0, 0, 255}, false)
+		case 3:
+			vector.StrokeLine(screen, g.bossTank.x, g.bossTank.y+10, g.bossTank.x-10, g.bossTank.y+10, 1, color.RGBA{255, 0, 0, 255}, false)
+		}
+	}
+}
+
+func (g *Game) drawBossBullets(screen *ebiten.Image) {
+	// 绘制敌人子弹
+	for _, bullet := range g.bossBullets {
+		vector.DrawFilledRect(screen, bullet.x, bullet.y, 5, 5, color.RGBA{255, 0, 0, 255}, false)
+	}
+}
+
 func (g *Game) drawEnemyTanks(screen *ebiten.Image) {
 	// 绘制敌人坦克
 	for _, enemyTank := range g.enemyTanks {
-		vector.DrawFilledRect(screen, enemyTank.x, enemyTank.y, 20, 20, color.RGBA{255, 0, 0, 255}, false)
+		vector.DrawFilledRect(screen, enemyTank.x, enemyTank.y, 20, 20, color.RGBA{255, 182, 193, 255}, false)
 		switch enemyTank.direction {
 		case 0:
-			vector.StrokeLine(screen, enemyTank.x+10, enemyTank.y, enemyTank.x+10, enemyTank.y-10, 1, color.RGBA{255, 0, 0, 255}, false)
+			vector.StrokeLine(screen, enemyTank.x+10, enemyTank.y, enemyTank.x+10, enemyTank.y-10, 1, color.RGBA{255, 182, 193, 255}, false)
 		case 1:
-			vector.StrokeLine(screen, enemyTank.x+20, enemyTank.y+10, enemyTank.x+30, enemyTank.y+10, 1, color.RGBA{255, 0, 0, 255}, false)
+			vector.StrokeLine(screen, enemyTank.x+20, enemyTank.y+10, enemyTank.x+30, enemyTank.y+10, 1, color.RGBA{255, 182, 193, 255}, false)
 		case 2:
-			vector.StrokeLine(screen, enemyTank.x+10, enemyTank.y+20, enemyTank.x+10, enemyTank.y+30, 1, color.RGBA{255, 0, 0, 255}, false)
+			vector.StrokeLine(screen, enemyTank.x+10, enemyTank.y+20, enemyTank.x+10, enemyTank.y+30, 1, color.RGBA{255, 182, 193, 255}, false)
 		case 3:
-			vector.StrokeLine(screen, enemyTank.x, enemyTank.y+10, enemyTank.x-10, enemyTank.y+10, 1, color.RGBA{255, 0, 0, 255}, false)
+			vector.StrokeLine(screen, enemyTank.x, enemyTank.y+10, enemyTank.x-10, enemyTank.y+10, 1, color.RGBA{255, 182, 193, 255}, false)
 		}
 	}
 }
@@ -496,7 +722,7 @@ func (g *Game) drawEnemyTanks(screen *ebiten.Image) {
 func (g *Game) drawEnemyBullets(screen *ebiten.Image) {
 	// 绘制敌人子弹
 	for _, bullet := range g.enemyBullets {
-		vector.DrawFilledRect(screen, bullet.x, bullet.y, 5, 5, color.RGBA{255, 0, 0, 255}, false)
+		vector.DrawFilledRect(screen, bullet.x, bullet.y, 5, 5, color.RGBA{255, 182, 193, 255}, false)
 	}
 }
 
@@ -522,20 +748,28 @@ func (g *Game) drawStatusBar(screen *ebiten.Image) {
 	op := &text.DrawOptions{}
 	op.ColorScale.ScaleWithColor(color.RGBA{0, 0, 255, 255})
 
-	// 绘制敌方坦克总数
-	msg := fmt.Sprintf("敌方坦克总数: %d", g.enemyTankCount)
-	op.GeoM.Translate(2, 1)
-	text.Draw(screen, msg, face, op)
+	var msg string
+	// // 绘制敌方坦克总数
+	// msg = fmt.Sprintf("敌方坦克总数: %d", g.enemyTankCount)
+	// op.GeoM.Translate(2, 1)
+	// text.Draw(screen, msg, face, op)
 
-	// 绘制敌方出动坦克数
-	msg = fmt.Sprintf("敌方出动坦克数: %d", len(g.enemyTanks))
-	op.GeoM.Translate(120, 1)
-	text.Draw(screen, msg, face, op)
+	// // 绘制敌方出动坦克数
+	// msg = fmt.Sprintf("敌方出动坦克数: %d", len(g.enemyTanks))
+	// op.GeoM.Translate(120, 1)
+	// text.Draw(screen, msg, face, op)
 
 	// 绘制玩家坦克生命值
 	if g.playerTank != nil {
 		msg = fmt.Sprintf("玩家生命值: %d", g.playerTank.health)
-		op.GeoM.Translate(240, 1)
+		op.GeoM.Translate(2, 1)
+		text.Draw(screen, msg, face, op)
+	}
+
+	// 绘制Boss坦克生命值
+	if g.bossTank != nil {
+		msg = fmt.Sprintf("敌方生命值: %d", g.bossTank.health)
+		op.GeoM.Translate(120, 1)
 		text.Draw(screen, msg, face, op)
 	}
 }
@@ -547,9 +781,16 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 
+	if g.gameSucc {
+		ebitenutil.DebugPrint(screen, "YOU WIN!")
+		return
+	}
+
 	g.drawStatusBar(screen)
 	g.drawPlayerTank(screen)
 	g.drawPlayerBullets(screen)
+	g.drawBossTank(screen)
+	g.drawBossBullets(screen)
 	g.drawEnemyTanks(screen)
 	g.drawEnemyBullets(screen)
 	g.drawWalls(screen)
