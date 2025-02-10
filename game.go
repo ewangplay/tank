@@ -331,6 +331,7 @@ func (g *Game) updateBossTank() error {
 		// 简单的随机移动逻辑
 		if int(ebiten.ActualTPS())%changeDirInterval == 0 && !g.bossTank.directionChanged {
 			g.bossTank.direction = rand.Intn(4)
+			g.bossTankFire()
 			g.bossTank.directionChanged = true
 		} else if int(ebiten.ActualTPS())%changeDirInterval != 0 {
 			g.bossTank.directionChanged = false
@@ -344,24 +345,28 @@ func (g *Game) updateBossTank() error {
 				newY -= tankSpeed
 			} else {
 				g.bossTank.direction = rand.Intn(4)
+				g.bossTankFire()
 			}
 		case 1:
 			if g.bossTank.x < screenWidth-20 {
 				newX += tankSpeed
 			} else {
 				g.bossTank.direction = rand.Intn(4)
+				g.bossTankFire()
 			}
 		case 2:
 			if g.bossTank.y < screenHeight-20 {
 				newY += tankSpeed
 			} else {
 				g.bossTank.direction = rand.Intn(4)
+				g.bossTankFire()
 			}
 		case 3:
 			if g.bossTank.x > 0 {
 				newX -= tankSpeed
 			} else {
 				g.bossTank.direction = rand.Intn(4)
+				g.bossTankFire()
 			}
 		}
 
@@ -379,6 +384,7 @@ func (g *Game) updateBossTank() error {
 				collision = true
 				// 随机改变行进方向
 				g.bossTank.direction = rand.Intn(4)
+				g.bossTankFire()
 				break
 			}
 		}
@@ -389,6 +395,7 @@ func (g *Game) updateBossTank() error {
 				collision = true
 				// 随机改变行进方向
 				g.bossTank.direction = rand.Intn(4)
+				g.bossTankFire()
 				break
 			}
 		}
@@ -401,18 +408,22 @@ func (g *Game) updateBossTank() error {
 
 		// 简单的随机射击逻辑
 		if int(ebiten.ActualTPS())%shootInterval == 0 && !g.bossTank.hasShot {
-			bullet := Bullet{
-				x:         g.bossTank.x + 8,
-				y:         g.bossTank.y + 8,
-				direction: g.bossTank.direction,
-			}
-			g.bossBullets = append(g.bossBullets, bullet)
+			g.bossTankFire()
 			g.bossTank.hasShot = true
 		} else if int(ebiten.ActualTPS())%shootInterval != 0 {
 			g.bossTank.hasShot = false
 		}
 	}
 	return nil
+}
+
+func (g *Game) bossTankFire() {
+	bullet := Bullet{
+		x:         g.bossTank.x + 8,
+		y:         g.bossTank.y + 8,
+		direction: g.bossTank.direction,
+	}
+	g.bossBullets = append(g.bossBullets, bullet)
 }
 
 func (g *Game) updateBossBullets() error {
@@ -479,6 +490,7 @@ func (g *Game) updateEnemyTanks() error {
 		// 简单的随机移动逻辑
 		if int(ebiten.ActualTPS())%changeDirInterval == 0 && !g.enemyTanks[i].directionChanged {
 			g.enemyTanks[i].direction = rand.Intn(4)
+			g.enemyTankFire(i)
 			g.enemyTanks[i].directionChanged = true
 		} else if int(ebiten.ActualTPS())%changeDirInterval != 0 {
 			g.enemyTanks[i].directionChanged = false
@@ -492,24 +504,28 @@ func (g *Game) updateEnemyTanks() error {
 				newY -= tankSpeed
 			} else {
 				g.enemyTanks[i].direction = rand.Intn(4)
+				g.enemyTankFire(i)
 			}
 		case 1:
 			if g.enemyTanks[i].x < screenWidth-20 {
 				newX += tankSpeed
 			} else {
 				g.enemyTanks[i].direction = rand.Intn(4)
+				g.enemyTankFire(i)
 			}
 		case 2:
 			if g.enemyTanks[i].y < screenHeight-20 {
 				newY += tankSpeed
 			} else {
 				g.enemyTanks[i].direction = rand.Intn(4)
+				g.enemyTankFire(i)
 			}
 		case 3:
 			if g.enemyTanks[i].x > 0 {
 				newX -= tankSpeed
 			} else {
 				g.enemyTanks[i].direction = rand.Intn(4)
+				g.enemyTankFire(i)
 			}
 		}
 
@@ -525,17 +541,9 @@ func (g *Game) updateEnemyTanks() error {
 		for _, wall := range g.walls {
 			if checkCollision(newX, newY, 20, 20, wall.x, wall.y, wall.width, wall.height) {
 				collision = true
-				// 改变行进方向，跟原先的方向相反
-				switch g.enemyTanks[i].direction {
-				case 0:
-					g.enemyTanks[i].direction = 2
-				case 1:
-					g.enemyTanks[i].direction = 3
-				case 2:
-					g.enemyTanks[i].direction = 0
-				case 3:
-					g.enemyTanks[i].direction = 1
-				}
+				// 随机改变行进方向
+				g.enemyTanks[i].direction = rand.Intn(4)
+				g.enemyTankFire(i)
 				break
 			}
 		}
@@ -546,6 +554,7 @@ func (g *Game) updateEnemyTanks() error {
 				collision = true
 				// 随机改变行进方向
 				g.enemyTanks[i].direction = rand.Intn(4)
+				g.enemyTankFire(i)
 			}
 		}
 
@@ -557,18 +566,22 @@ func (g *Game) updateEnemyTanks() error {
 
 		// 简单的随机射击逻辑
 		if int(ebiten.ActualTPS())%shootInterval == 0 && !g.enemyTanks[i].hasShot {
-			bullet := Bullet{
-				x:         g.enemyTanks[i].x + 8,
-				y:         g.enemyTanks[i].y + 8,
-				direction: g.enemyTanks[i].direction,
-			}
-			g.enemyBullets = append(g.enemyBullets, bullet)
+			g.enemyTankFire(i)
 			g.enemyTanks[i].hasShot = true
 		} else if int(ebiten.ActualTPS())%shootInterval != 0 {
 			g.enemyTanks[i].hasShot = false
 		}
 	}
 	return nil
+}
+
+func (g *Game) enemyTankFire(i int) {
+	bullet := Bullet{
+		x:         g.enemyTanks[i].x + 8,
+		y:         g.enemyTanks[i].y + 8,
+		direction: g.enemyTanks[i].direction,
+	}
+	g.enemyBullets = append(g.enemyBullets, bullet)
 }
 
 func (g *Game) updateEnemyBullets() error {
