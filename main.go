@@ -38,6 +38,8 @@ const (
 	enemyTankHP = 1
 	// 墙的坚固值
 	wallHP = 3
+	// Boss坦克容忍的最长尾随时间
+	bossToleranceTime = 3
 )
 
 func main() {

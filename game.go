@@ -62,6 +62,7 @@ type Game struct {
 	gameOver       bool
 	gameSucc       bool
 	enemyTankCount int
+	lastFollowTime time.Time
 }
 
 // NewGame 创建一个新的游戏实例
@@ -94,6 +95,7 @@ func NewGame() *Game {
 		gameOver:       false,
 		gameSucc:       false,
 		enemyTankCount: maxEnemyTankCount,
+		lastFollowTime: time.Now(),
 	}
 
 	go game.spawnEnemyTanks()
@@ -326,8 +328,48 @@ func (g *Game) updatePlayerBullets() error {
 	return nil
 }
 
+// isPlayerTankFollowed 判断玩家坦克是否在尾随Boss坦克
+func (g *Game) isPlayerTankFollowed() bool {
+	if g.playerTank == nil || g.bossTank == nil {
+		return false
+	}
+
+	isFollowing := false
+	switch g.playerTank.direction {
+	case 0: // 上
+		if g.playerTank.x == g.bossTank.x && g.playerTank.y > g.bossTank.y {
+			isFollowing = true
+		}
+	case 1: // 右
+		if g.playerTank.x < g.bossTank.x && g.playerTank.y == g.bossTank.y {
+			isFollowing = true
+		}
+	case 2: // 下
+		if g.playerTank.x == g.bossTank.x && g.playerTank.y < g.bossTank.y {
+			isFollowing = true
+		}
+	case 3: // 左
+		if g.playerTank.x > g.bossTank.x && g.playerTank.y == g.bossTank.y {
+			isFollowing = true
+		}
+	}
+	return isFollowing
+}
+
 func (g *Game) updateBossTank() error {
 	if g.bossTank != nil {
+		// 检查玩家坦克是否在尾随
+		if g.isPlayerTankFollowed() {
+			if time.Since(g.lastFollowTime) > bossToleranceTime*time.Second {
+				// 玩家坦克尾随超过3秒，Boss坦克转向并射击
+				g.bossTank.direction = (g.bossTank.direction + 2) % 4 // 转向180度
+				g.bossTankFire()
+				g.lastFollowTime = time.Now()
+			}
+		} else {
+			g.lastFollowTime = time.Now()
+		}
+
 		// 简单的随机移动逻辑
 		if int(ebiten.ActualTPS())%changeDirInterval == 0 && !g.bossTank.directionChanged {
 			g.bossTank.direction = rand.Intn(4)
