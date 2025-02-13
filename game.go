@@ -261,6 +261,7 @@ func (g *Game) updatePlayerBullets() error {
 				if g.enemyTanks[j].health <= 0 {
 					// 移除敌方坦克
 					g.enemyTanks = append(g.enemyTanks[:j], g.enemyTanks[j+1:]...)
+					g.playerTank.health++
 				}
 				// 移除子弹
 				g.playerBullets = append(g.playerBullets[:i], g.playerBullets[i+1:]...)
@@ -287,35 +288,35 @@ func (g *Game) updatePlayerBullets() error {
 			}
 		}
 
-		// 检测玩家子弹与Boss子弹的碰撞
-		for j := 0; j < len(g.bossBullets); j++ {
-			if i < 0 {
-				break
-			}
-			if checkCollision(g.playerBullets[i].x, g.playerBullets[i].y, 5, 5, g.bossBullets[j].x, g.bossBullets[j].y, 5, 5) {
-				// 移除Boss子弹
-				g.bossBullets = append(g.bossBullets[:j], g.bossBullets[j+1:]...)
-				// 移除玩家子弹
-				g.playerBullets = append(g.playerBullets[:i], g.playerBullets[i+1:]...)
-				i--
-				break
-			}
-		}
+		// // 检测玩家子弹与Boss子弹的碰撞
+		// for j := 0; j < len(g.bossBullets); j++ {
+		// 	if i < 0 {
+		// 		break
+		// 	}
+		// 	if checkCollision(g.playerBullets[i].x, g.playerBullets[i].y, 5, 5, g.bossBullets[j].x, g.bossBullets[j].y, 5, 5) {
+		// 		// 移除Boss子弹
+		// 		g.bossBullets = append(g.bossBullets[:j], g.bossBullets[j+1:]...)
+		// 		// 移除玩家子弹
+		// 		g.playerBullets = append(g.playerBullets[:i], g.playerBullets[i+1:]...)
+		// 		i--
+		// 		break
+		// 	}
+		// }
 
-		// 检测玩家子弹与敌方子弹的碰撞
-		for j := 0; j < len(g.enemyBullets); j++ {
-			if i < 0 {
-				break
-			}
-			if checkCollision(g.playerBullets[i].x, g.playerBullets[i].y, 5, 5, g.enemyBullets[j].x, g.enemyBullets[j].y, 5, 5) {
-				// 移除敌方子弹
-				g.enemyBullets = append(g.enemyBullets[:j], g.enemyBullets[j+1:]...)
-				// 移除玩家子弹
-				g.playerBullets = append(g.playerBullets[:i], g.playerBullets[i+1:]...)
-				i--
-				break
-			}
-		}
+		// // 检测玩家子弹与敌方子弹的碰撞
+		// for j := 0; j < len(g.enemyBullets); j++ {
+		// 	if i < 0 {
+		// 		break
+		// 	}
+		// 	if checkCollision(g.playerBullets[i].x, g.playerBullets[i].y, 5, 5, g.enemyBullets[j].x, g.enemyBullets[j].y, 5, 5) {
+		// 		// 移除敌方子弹
+		// 		g.enemyBullets = append(g.enemyBullets[:j], g.enemyBullets[j+1:]...)
+		// 		// 移除玩家子弹
+		// 		g.playerBullets = append(g.playerBullets[:i], g.playerBullets[i+1:]...)
+		// 		i--
+		// 		break
+		// 	}
+		// }
 
 		// 移除超出屏幕的子弹
 		if i >= 0 && i < len(g.playerBullets) {
