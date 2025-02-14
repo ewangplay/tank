@@ -261,7 +261,7 @@ func (g *Game) updatePlayerBullets() error {
 				if g.enemyTanks[j].health <= 0 {
 					// 移除敌方坦克
 					g.enemyTanks = append(g.enemyTanks[:j], g.enemyTanks[j+1:]...)
-					g.playerTank.health++
+					// g.playerTank.health++
 				}
 				// 移除子弹
 				g.playerBullets = append(g.playerBullets[:i], g.playerBullets[i+1:]...)
