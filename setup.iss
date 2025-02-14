@@ -6,7 +6,7 @@ WizardStyle=modern
 DefaultDirName={autopf}\Tank Game
 DefaultGroupName=Tank Game
 OutputDir=.
-OutputBaseFilename=TankGame-Setup
+OutputBaseFilename=TankGame-Setup-v1.0
 
 [Files]
 ; 将可执行文件和其他资源文件添加到安装包中
